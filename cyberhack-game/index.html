@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hacker Terminal</title>
+    <link rel="icon" href="logo/logo.png">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+        }
+
+        .loader-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .hexagon {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            animation: rotate 3s linear infinite;
+        }
+
+        .hexagon:nth-child(1) {
+            border-top: 2px solid #0ff;
+            animation-delay: 0s;
+        }
+
+        .hexagon:nth-child(2) {
+            border-right: 2px solid #0ff;
+            animation-delay: 0.5s;
+        }
+
+        .hexagon:nth-child(3) {
+            border-bottom: 2px solid #0ff;
+            animation-delay: 1s;
+        }
+
+        .progress {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ff;
+            font-size: 24px;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        .status {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #0ff;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+
+        #matrixCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.8;
+        }
+
+        .game-container {
+            display: none;
+            width: 80vw;
+            height: 80vh;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #0f0;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .terminal {
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #userInput {
+            background: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            flex-grow: 1;
+            outline: none;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .logo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: 2px solid #0ff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            z-index: 1000;
+        }
+
+        #Logo-Image {
+            height: 100px;
+            width: auto;
+            border-radius: 50%;
+            border: 2px solid #0ff;
+            box-shadow: 0 0 15px #0ff;
+            animation: glow 2s infinite alternate;
+            transition: transform 0.3s ease;
+        }
+
+        #Logo-Image:hover {
+            transform: scale(1.1) rotate(10deg);
+            border-color: #0f0;
+            box-shadow: 0 0 20px #0f0;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 15px #FFDF00;
+            }
+            to {
+                box-shadow: 0 0 25px #FFDF00, 0 0 35px #FFDF00;
+            }
+        }
+
+        /* Adjust game container to account for logo header */
+        .game-container {
+            margin-top: 140px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrixCanvas"></canvas>
+    <div class="loader-container" id="loader">
+        <div class="hexagon"></div>
+        <div class="hexagon"></div>
+        <div class="hexagon"></div>
+        <div class="progress">0%</div>
+        <div class="status">SYSTEM LOADING</div>
+    </div>
+
+    <div class="logo">
+        <img src="logo/logo.png" id="Logo-Image" alt="logo">
+        <h1>CYBER-HACK V1.0</h1>
+    </div>
+
+    <div class="game-container" id="game">
+        <div class="terminal" id="terminal">Welcome to CyberHack v1.0
+Type 'help' for available commands.</div>
+        <div class="input-line">
+            <span>></span>
+            <input type="text" id="userInput" autofocus>
+        </div>
+    </div>
+
+    <script>
+        const progress = document.querySelector('.progress');
+        const status = document.querySelector('.status');
+        const loader = document.getElementById('loader');
+        const game = document.getElementById('game');
+        const terminal = document.getElementById('terminal');
+        const userInput = document.getElementById('userInput');
+        let count = 0;
+
+        const messages = [
+            'INITIALIZING SYSTEM',
+            'LOADING MODULES',
+            'ESTABLISHING CONNECTION',
+            'SYNCHRONIZING DATA',
+            'SYSTEM READY'
+        ];
+
+        const commands = {
+            help: 'Available commands:\n- scan: Scan for vulnerable systems\n- hack [target]: Attempt to hack a target\n- clear: Clear terminal\n- exit: Exit terminal\n- cmd_matrix [type]: Start matrix animation (classic/blue/rainbow/stop)',
+            scan: 'Scanning network...\nFound vulnerable targets:\n- mainframe.corp\n- security.sys\n- database.net',
+            clear: '',
+            exit: 'Goodbye!'
+        };
+
+        // Matrix animation setup
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+        let matrixStyle = 'classic';
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const chars = '10110101000111000111010010011100001110101010100111000111001101000';
+        const drops = [];
+        let isMatrixRunning = false;
+        let animationFrame;
+
+        function initMatrix() {
+            const columns = canvas.width / 20;
+            for (let i = 0; i < columns; i++) {
+                drops[i] = 1;
+            }
+        }
+
+        function drawMatrix() {
+            if (!isMatrixRunning) return;
+
+            switch(matrixStyle) {
+                case 'classic':
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#0F0';
+                    ctx.font = '15px Matrix';
+                    break;
+                case 'blue':
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#0FF';
+                    ctx.font = '15px Matrix';
+                    break;
+                case 'rainbow':
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    break;
+                case 'red':
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#0FF';
+                    ctx.font = '15px Matrix';
+                    break;
+            }
+
+            for (let i = 0; i < drops.length; i++) {
+                if (matrixStyle === 'rainbow') {
+                    ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                }
+                
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * 20, drops[i] * 20);
+
+                if (drops[i] * 20 > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+            animationFrame = requestAnimationFrame(drawMatrix);
+        }
+
+        commands['cmd_matrix'] = (type = 'classic') => {
+            if (type === 'stop') {
+                isMatrixRunning = false;
+                cancelAnimationFrame(animationFrame);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return 'Matrix animation stopped';
+            }
+            
+            if (['classic', 'blue', 'rainbow', 'red'].includes(type)) {
+                matrixStyle = type;
+                if (!isMatrixRunning) {
+                    isMatrixRunning = true;
+                    initMatrix();
+                    drawMatrix();
+                }
+                return `Matrix animation started in ${type} mode`;
+            }
+            return 'Available matrix types: classic, blue, rainbow, red, stop';
+        };
+
+        const updateLoader = () => {
+            if (count <= 100) {
+                progress.textContent = `${count}%`;
+                status.textContent = messages[Math.floor(count/25)];
+                count++;
+                setTimeout(updateLoader, 50);
+            } else {
+                startGame();
+            }
+        };
+
+        const startGame = () => {
+            loader.style.display = 'none';
+            game.style.display = 'block';
+        };
+
+        const processCommand = (cmd) => {
+            const args = cmd.toLowerCase().split(' ');
+            const command = args[0];
+            
+            if (command === 'cmd_matrix') {
+                return commands['cmd_matrix'](args[1]);
+            }
+            
+            if (command === 'hack' && args[1]) {
+                return `Attempting to hack ${args[1]}...\n
+[====================] 100%\n
+${Math.random() > 0.5 ? 'Access granted!' : 'Access denied. Target firewall active.'}`;
+            }
+            
+            return commands[command] || 'Command not recognized. Type "help" for available commands.';
+        };
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const command = userInput.value;
+                terminal.textContent += `\n> ${command}\n`;
+                terminal.textContent += processCommand(command);
+                userInput.value = '';
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        });
+
+        updateLoader();
+    </script>
+</body>
+</html>
